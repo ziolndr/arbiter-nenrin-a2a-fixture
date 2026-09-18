@@ -1,0 +1,71 @@
+{
+ "schema": "nenrin-localheaders-manifest-1",
+ "chain": "bitcoin",
+ "courier": "bitcoin p2p getheaders",
+ "mode": "window from manifest",
+ "peers": {
+  "125.26.248.32:8333": {
+   "tip_height": 966384,
+   "headers": 4753
+  },
+  "79.100.237.181:8333": {
+   "tip_height": 966384,
+   "headers": 4753
+  },
+  "99.172.29.3:8333": {
+   "tip_height": 966384,
+   "headers": 4753
+  }
+ },
+ "peers_failed": {
+  "73.227.239.221:8333": "[Errno 61] Connection refused",
+  "46.142.130.60:8333": "timed out",
+  "35.244.117.249:8333": "timed out"
+ },
+ "min_peers": 2,
+ "synced_at": 1789060106,
+ "start_height": 961632,
+ "count": 4753,
+ "tip_height": 966384,
+ "tip_hash": "0000000000000000000134aa3ff6b306f9726aae0aa658d8b4a56838c7f8fcc0",
+ "tip_time": 1789059871,
+ "chainwork_hex": "85c9bb8e7c230af29bacb7e",
+ "sha256": "527ea133bbe56df65bcab907a8b5ef613224f2b9aedfe2dcfb81bc87b4cb0312",
+ "start_prev_hash": "00000000000000000000807f9dc917442a67910426d79ebb2f8aa2149327ce8a",
+ "start_bits": 386022100,
+ "prior_times": [
+  1786215123,
+  1786215153,
+  1786215408,
+  1786216475,
+  1786216537,
+  1786216594,
+  1786216717,
+  1786217145,
+  1786217271,
+  1786217311,
+  1786217628
+ ],
+ "checkpoints": {
+  "961632": "00000000000000000000d1e01392faa65ceeaed307f0a3159144b84146ff24ba",
+  "963648": "00000000000000000001769d9a327f5b455aa8a2dd407b1b63040d2a9f832d32",
+  "965451": "00000000000000000000e9f3195446ee74b371312941d73e8fdddab86499b499",
+  "965454": "0000000000000000000189026da7d21f973d0cc81df1a4d920d68cbe10d127fa",
+  "966384": "0000000000000000000134aa3ff6b306f9726aae0aa658d8b4a56838c7f8fcc0"
+ },
+ "retarget_boundaries_verified": 2,
+ "retarget_verified_at": [
+  963648,
+  965664
+ ],
+ "unverified": [
+  {
+   "height": 961632,
+   "check": "retarget",
+   "why": "first block of the previous period (height 959616) is not in the file"
+  }
+ ],
+ "future_check": "done",
+ "compare": null,
+ "note": "no HTTP explorer in the path. headers came from full nodes over the peer to peer protocol, were validated by consensus rules, and had to agree byte for byte across peers before anything was written."
+}

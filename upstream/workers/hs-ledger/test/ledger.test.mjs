@@ -1,0 +1,292 @@
+// test/ledger.test.mjs — hs-ledger 看板v1.1 の回帰テスト（23アサーション）
+//
+// 実行: node test/ledger.test.mjs
+//
+// このテストが守っているもの:
+//   1. /health の routes 配列が **ちょうど14本**（9 + witness3 + /resume + /trust-signal）であること。
+//      引き継ぎ書がこの9本を文字単位で固定し、番人v4 点検⑩ がこれを数えている。
+//      看板の追加でここが動いたら、それは設計の失敗であってテストの失敗ではない。
+//   2. 看板が RFC / 仕様に**本当に**準拠していること（形だけの .well-known を置かない）。
+//   3. 台帳が自分の限界を公言し続けること（transparency.conformance の "NOT a conformant"）。
+//      ここが消えたら、それは誠実さが消えたということで、機能の劣化より重い。
+//   4. 既存ルートが無傷であること。
+
+import { loadWorker, sha256Hex, mockKV, checker } from "./load.mjs";
+
+const worker = await loadWorker("src/worker.js");
+
+// entry #2 相当：`schema` を持たない v0 の仕様書型エントリ。
+// これがまさに、v1.0 の jidec_cite が 400 を返していたケースである。
+const rec2 = JSON.stringify({ title: "SPEC_HASH_INDEPENDENCE_v1.md", sha256: "deadbeef" });
+const h2 = await sha256Hex(rec2);
+const kv = mockKV([
+  ["seq", "2"],
+  [
+    "entry:2",
+    JSON.stringify({
+      n: 2,
+      work: "spec",
+      claim_sha256: h2,
+      record_canonical: rec2,
+      schema: "v0",
+      created_at: "2026-01-01T00:00:00Z",
+      ots_status: "confirmed",
+      bitcoin_block: 912345,
+      block_time: "2026-01-02T00:00:00Z",
+    }),
+  ],
+  [`hash:${h2}`, "2"],
+]);
+const env = { LEDGER: kv.binding };
+
+const B = "https://hs-ledger.example.dev";
+async function go(path, init) {
+  const r = await worker.fetch(new Request(B + path, init), env);
+  return {
+    s: r.status,
+    ct: r.headers.get("content-type"),
+    vary: r.headers.get("vary"),
+    ext: r.headers.get("a2a-extensions"),
+    extLegacy: r.headers.get("x-a2a-extensions"),
+    t: await r.text(),
+  };
+}
+
+const chk = checker("hs-ledger");
+
+// ── 既存の約束 ───────────────────────────────────────────────
+let r = await go("/health");
+const hj = JSON.parse(r.t);
+// 2026-08-18 で /witness, /witness/pending, /witness/{sha} の 3 本が足された(entry #19、NENRIN phase 2)。
+// 9 のままやったこの行は 08-18 から落ち続けとった。12 に直したのは 2026-09-05。
+// 2026-09-14: 本数(=== 13)は route を足すたびに手で書き換える魔法数字やった(9 -> 12 -> 13)。
+// 監視側と同じアンチパターン。名前の集合で見る。route を足したら、ここに名前を書き足さんと落ちる。
+const EXPECTED_ROUTES = [
+  "/ledger", "/ledger/{n}", "/ledger/{n}/ots", "/verify/{n}", "/reference/{sha}",
+  "/paths", "/paths/{sha}", "/paths/{sha}/replay", "/paths/query",
+  "/witness", "/witness/pending", "/witness/{sha}",
+  "/resume?endpoint={url}",
+  "/trust-signal?endpoint={url}",
+];
+const routesMatch = Array.isArray(hj.routes)
+  && JSON.stringify([...hj.routes].sort()) === JSON.stringify([...EXPECTED_ROUTES].sort());
+chk("/health routes are exactly the named set (add a route: name it here, not bump a count)", routesMatch, "got " + JSON.stringify(hj.routes));
+chk("/health has discovery", !!hj.discovery && hj.discovery.api_catalog === "/.well-known/api-catalog");
+chk("/health transparency admits non-conformance", /NOT a conformant/.test(hj.transparency.conformance));
+
+// ── 看板 ─────────────────────────────────────────────────────
+r = await go("/.well-known/api-catalog");
+chk("api-catalog 200 + linkset+json", r.s === 200 && r.ct.includes("application/linkset+json"), r.ct);
+chk("api-catalog has linkset[].item[]", Array.isArray(JSON.parse(r.t).linkset[0].item));
+
+r = await go("/.well-known/agent-card.json");
+const ac = JSON.parse(r.t);
+const req8 = [
+  "name",
+  "description",
+  "version",
+  "capabilities",
+  "supportedInterfaces",
+  "defaultInputModes",
+  "defaultOutputModes",
+  "skills",
+];
+chk("agent-card has all 8 A2A v1.0 required fields", req8.every((k) => k in ac), req8.filter((k) => !(k in ac)).join(","));
+// A2A v1.0 で protocolVersion はルートから各 AgentInterface に移った。1.0 の読者は supportedInterfaces を読む。
+// 2026-09-06 第二波: ルートの protocolVersion "0.3.0" は 0.3 だけの読者のために「同居」させとる(1.0 の SDK は
+// supportedInterfaces があればルートを無視する: 実測 @a2a-js/sdk 1.1.0 / a2a-sdk 1.1.2)。1.0 の interface が先頭に居ることを見る。
+chk(
+  "agent-card: 1.0 protocolVersion lives in supportedInterfaces[0]; root protocolVersion is the 0.3 legacy marker",
+  ac.supportedInterfaces[0].protocolVersion === "1.0" && ac.protocolVersion === "0.3.0"
+);
+chk("AgentSkill has id/name/description/tags", ["id", "name", "description", "tags"].every((k) => k in ac.skills[0]));
+
+r = await go("/.well-known/security.txt");
+chk("security.txt has Contact+Expires", r.s === 200 && /Contact:/.test(r.t) && /Expires:/.test(r.t));
+
+r = await go("/llms.txt");
+chk("llms.txt 200 text/markdown", r.s === 200 && r.ct.includes("text/markdown"));
+
+r = await go("/robots.txt");
+chk("robots.txt has Content-Usage + Content-signal", /Content-Usage:/.test(r.t) && /Content-signal:/.test(r.t));
+
+// ── 案内人：非パス型エントリが引けること（v1.0 では 400 だった） ──
+r = await go("/cite/jidec:entry:2");
+const card = JSON.parse(r.t);
+chk("/cite resolves a v0 spec entry (was 400)", r.s === 200 && card.integrity.match === true, JSON.stringify(card).slice(0, 200));
+// Vary: Accept が無いと、Markdown を受け取ったキャッシュが JSON クライアントに
+// Markdown を返す。これは静かに壊れる種類の事故なので必ず検査する。
+chk("/cite Vary: Accept present", r.vary === "Accept", String(r.vary));
+chk("/cite states its limits", /Does not prove/.test(card.limits));
+
+r = await go("/cite/" + h2);
+chk("/cite by bare 64-hex resolves", r.s === 200 && JSON.parse(r.t).resolved_entry === 2);
+
+r = await go("/cite/jidec:entry:2", { headers: { accept: "text/markdown" } });
+chk("/cite markdown negotiation", r.s === 200 && r.ct.includes("text/markdown") && r.vary === "Accept", r.ct + " vary=" + r.vary);
+chk("markdown contains reproduce command", /shasum -a 256/.test(r.t));
+
+r = await go("/cite/jidec:entry:999");
+chk("/cite unknown entry -> 404 with accepted_forms", r.s === 404 && JSON.parse(r.t).accepted_forms.length === 4);
+
+// ── A2A：カードが宣言したスキルが実在すること ────────────────
+r = await go("/a2a", {
+  method: "POST",
+  headers: { "content-type": "application/json" },
+  body: JSON.stringify({
+    jsonrpc: "2.0",
+    id: 7,
+    method: "message/send",
+    params: { message: { role: "user", kind: "message", messageId: "m1", parts: [{ kind: "text", text: "please verify jidec:entry:2" }] } },
+  }),
+});
+const a = JSON.parse(r.t);
+chk("a2a message/send returns agent message", a.result && a.result.kind === "message" && a.result.role === "agent", r.t.slice(0, 300));
+chk("a2a returns a data part with the card", a.result.parts.some((p) => p.kind === "data" && p.data.integrity.match === true));
+
+r = await go("/a2a", {
+  method: "POST",
+  headers: { "content-type": "application/json" },
+  body: JSON.stringify({ jsonrpc: "2.0", id: 8, method: "tasks/get" }),
+});
+chk("a2a unknown method -> -32601", JSON.parse(r.t).error.code === -32601);
+
+// A2A Conduct Extension v1 (2026-09-06): declaration, echo, metadata
+const EXT = "https://gate.horizonshield.dev/ext/conduct/v1";
+chk("agent-card declares conduct ext under capabilities.extensions", Array.isArray(ac.capabilities.extensions) && ac.capabilities.extensions.some((e) => e.uri === EXT && e.params && e.params.compensation && e.params.witness_intake), JSON.stringify(ac.capabilities));
+chk("conduct ext is not marked required", ac.capabilities.extensions.every((e) => e.uri !== EXT || e.required === false));
+// 2026-09-06 第二波: SendMessage(1.0)は 1.0 形 {message:{role:"ROLE_AGENT", parts:[{text}|{data}], extensions:[uri], metadata}} で返す。
+// 要求の part も 1.0 形(kind 無し)で通る。message/send(0.3)は従来の 0.3 形のまま。
+r = await go("/a2a", {
+  method: "POST",
+  headers: { "content-type": "application/json", "a2a-extensions": EXT + ", https://example.invalid/ext/other/v1", "a2a-version": "1.0" },
+  body: JSON.stringify({ jsonrpc: "2.0", id: 9, method: "SendMessage", params: { message: { role: "ROLE_USER", messageId: "m2", parts: [{ text: "jidec:entry:2" }] } } }),
+});
+const ax = JSON.parse(r.t);
+const axm = ax.result && ax.result.message;
+chk("SendMessage (A2A 1.0) returns the 1.0 shape {message}", !!axm && ax.result.kind === undefined, r.t.slice(0, 200));
+chk("1.0 message: role is ROLE_AGENT and parts carry no kind", axm && axm.role === "ROLE_AGENT" && Array.isArray(axm.parts) && axm.parts.every((p) => p.kind === undefined) && axm.parts.some((p) => typeof p.text === "string") && axm.parts.some((p) => p.data && p.data.integrity), JSON.stringify(axm && axm.parts.map((p) => Object.keys(p))));
+chk("1.0 message: Message.extensions carries the activated URI", axm && Array.isArray(axm.extensions) && axm.extensions.includes(EXT), JSON.stringify(axm && axm.extensions));
+chk("activated ext is echoed in A2A-Extensions header, only the implemented one", r.ext === EXT, String(r.ext));
+chk("metadata carries endpoint / conduct_record / witness_intake under the ext URI", axm && axm.metadata && [EXT + "/endpoint", EXT + "/conduct_record", EXT + "/witness_intake"].every((k) => typeof axm.metadata[k] === "string" && axm.metadata[k].startsWith("https://")), JSON.stringify(axm && axm.metadata));
+chk("metadata carries nothing else (no timestamp, no score)", axm && axm.metadata && Object.keys(axm.metadata).length === 3);
+// 0.3 の綴り X-A2A-Extensions だけで有効化(公式 SDK の 0.3 互換路の実測): 0.3 形で返り、echo は両綴り
+r = await go("/a2a", {
+  method: "POST",
+  headers: { "content-type": "application/json", "x-a2a-extensions": EXT },
+  body: JSON.stringify({ jsonrpc: "2.0", id: 11, method: "message/send", params: { message: { role: "user", kind: "message", messageId: "m4", parts: [{ kind: "text", text: "jidec:entry:2" }] } } }),
+});
+const al = JSON.parse(r.t);
+chk("message/send (0.3) keeps the 0.3 shape (kind: message, role: agent)", al.result && al.result.kind === "message" && al.result.role === "agent", r.t.slice(0, 200));
+chk("X-A2A-Extensions alone activates the extension (metadata + extensions on the 0.3 message)", al.result.metadata && typeof al.result.metadata[EXT + "/endpoint"] === "string" && Array.isArray(al.result.extensions) && al.result.extensions.includes(EXT), JSON.stringify([al.result.metadata, al.result.extensions]));
+chk("echo comes back in both spellings when the request used X-A2A-Extensions", r.ext === EXT && r.extLegacy === EXT, String(r.ext) + " / " + String(r.extLegacy));
+r = await go("/a2a", {
+  method: "POST",
+  headers: { "content-type": "application/json" },
+  body: JSON.stringify({ jsonrpc: "2.0", id: 10, method: "message/send", params: { message: { role: "user", kind: "message", messageId: "m3", parts: [{ kind: "text", text: "jidec:entry:2" }] } } }),
+});
+const an = JSON.parse(r.t);
+chk("without activation: no echo header and no metadata", r.ext === null && r.extLegacy === null && an.result && an.result.metadata === undefined && an.result.extensions === undefined, String(r.ext) + " " + JSON.stringify(an.result && an.result.metadata));
+chk("agent-card: supportedInterfaces uses protocolBinding (not transport) and lists 1.0 first, 0.3 second", Array.isArray(ac.supportedInterfaces) && ac.supportedInterfaces.length === 2 && ac.supportedInterfaces[0].protocolBinding === "JSONRPC" && ac.supportedInterfaces[0].protocolVersion === "1.0" && ac.supportedInterfaces[1].protocolVersion === "0.3" && ac.supportedInterfaces.every((i) => i.transport === undefined && i.url.endsWith("/a2a")), JSON.stringify(ac.supportedInterfaces));
+chk("agent-card: 0.3 readers still find url / preferredTransport / protocolVersion", ac.url && ac.url.endsWith("/a2a") && ac.preferredTransport === "JSONRPC" && ac.protocolVersion === "0.3.0");
+
+// ── 既存ルートが無傷であること ────────────────────────────────
+r = await go("/ledger/2");
+chk("existing /ledger/{n} route untouched", r.s === 200);
+r = await go("/nope");
+chk("unknown route still 404", r.s === 404);
+
+// ── 看板の実測（Analytics Engine）────────────────────────────
+//
+// ここまでの全アサーションは KANBAN_AE バインディングが**無い** env で走った。
+// つまり「バインディングが無くても本番は一切壊れない」ことは、上の全部が
+// 既に証明している。以下はその逆、「バインディングがあるとき本当に書かれるか」
+// を見る。計測が黙って止まるのは、計測が無いことより見つけにくい壊れ方である。
+
+const points = [];
+const aeEnv = { ...env, KANBAN_AE: { writeDataPoint: (dp) => points.push(dp) } };
+async function goAE(path, init) {
+  const rr = await worker.fetch(new Request(B + path, init), aeEnv);
+  await rr.text();
+  return rr.status;
+}
+
+points.length = 0;
+await goAE("/health");
+chk("AE: /health writes exactly one datapoint", points.length === 1, String(points.length));
+chk("AE: route label is 'health'", points[0] && points[0].indexes[0] === "health", JSON.stringify(points[0]));
+chk("AE: status is recorded", points[0] && points[0].doubles[1] === 200, JSON.stringify(points[0] && points[0].doubles));
+
+points.length = 0;
+await goAE("/ledger/2?format=raw", { headers: { "user-agent": "curl/8.7.1" } });
+chk("AE: entry-raw is its own label", points[0] && points[0].blobs[0] === "entry-raw", JSON.stringify(points[0]));
+chk("AE: curl is classified as curl", points[0] && points[0].blobs[1] === "curl", JSON.stringify(points[0]));
+
+points.length = 0;
+await goAE("/cite/jidec:entry:2", { headers: { "user-agent": "Mozilla/5.0 (compatible; ClaudeBot/1.0)" } });
+chk("AE: /cite collapses to one label", points[0] && points[0].blobs[0] === "cite", JSON.stringify(points[0]));
+chk("AE: a crawler that says Mozilla is still a crawler", points[0] && points[0].blobs[1] === "ai-crawler", JSON.stringify(points[0]));
+
+// カーディナリティ：エントリ番号も SHA も、ラベルにもインデックスにも入らないこと。
+points.length = 0;
+await goAE("/verify/2");
+await goAE("/paths/" + "a".repeat(64));
+const labels = points.map((d) => d.indexes[0] + "|" + d.blobs[0]);
+chk("AE: no entry number leaks into the label", !labels.some((s) => /\d{1,}/.test(s.replace(/[^0-9]/g, "")) && /2/.test(s)), labels.join(","));
+chk("AE: no sha leaks into the label", !labels.some((s) => /[0-9a-f]{16,}/.test(s)), labels.join(","));
+
+// 管理ルートは一切測らない。トークンを持つ側の行動は記録しない。
+points.length = 0;
+await goAE("/ledger/append", { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
+await goAE("/reference/pin", { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
+await goAE("/ledger/pending");
+chk("AE: admin routes write nothing", points.length === 0, JSON.stringify(points));
+
+// クエリ文字列も UA 全文も Referer のパスも、どこにも現れないこと。
+points.length = 0;
+await goAE("/ledger/2?format=json&secret=leakme", {
+  headers: { "user-agent": "SomeAgent/1.0 (token=abc123)", referer: "https://example.org/private/page?q=zzz" },
+});
+const flat = JSON.stringify(points);
+chk("AE: query string never recorded", !/leakme/.test(flat), flat);
+chk("AE: full user-agent never recorded", !/abc123/.test(flat), flat);
+chk("AE: referer path never recorded", !/private|zzz/.test(flat) && /example\.org/.test(flat), flat);
+
+// 計測が落ちても応答は返ること（最上位の掟）。
+points.length = 0;
+const brokenEnv = { ...env, KANBAN_AE: { writeDataPoint: () => { throw new Error("AE down"); } } };
+const rb = await worker.fetch(new Request(B + "/health"), brokenEnv);
+await rb.text();
+chk("AE: a throwing sink does not kill the request", rb.status === 200, String(rb.status));
+
+// OPTIONS（プリフライト）は数えない。
+points.length = 0;
+await goAE("/health", { method: "OPTIONS" });
+chk("AE: preflight is not counted", points.length === 0, JSON.stringify(points));
+
+// /health が計測していることを自分で公言していること。
+chk("/health declares what it measures", !!hj.privacy && hj.privacy.access_measurement === "enabled");
+chk("/health declares that it does not record IPs", !!hj.privacy && hj.privacy.not_recorded.includes("IP address"));
+
+// 2026-09-05. 証人プールの日次束ね。scheduled が空プールで何もせず、2 件で 1 entry を作り、pending を消すこと。
+{
+  const kv2 = mockKV([["seq", "40"]]);
+  const env2 = { LEDGER: kv2.binding };
+  await worker.scheduled({}, env2, {});
+  chk("witness batch: empty pool leaves seq untouched", kv2.store.get("seq") === "40", kv2.store.get("seq"));
+  const rec = (sha, name) => JSON.stringify({ sha, purpose: "test walk", witness_name: name, vantage: "v", signed: false, submitted_at: "2026-08-18T00:00:00Z" });
+  kv2.store.set("wit:pending:aaaa", rec("aaaa", "A"));
+  kv2.store.set("wit:pending:bbbb", rec("bbbb", "B"));
+  await worker.scheduled({}, env2, {});
+  const e41 = JSON.parse(kv2.store.get("entry:41") || "null");
+  chk("witness batch: two pending records become one ledger entry", !!e41 && e41.work === "NENRIN witness batch (2 records)", JSON.stringify(e41 && e41.work));
+  chk("witness batch: the entry hashes its own canonical", !!e41 && e41.claim_sha256 === await sha256Hex(e41.record_canonical));
+  chk("witness batch: pending keys are gone, anchored keys exist",
+      !kv2.store.has("wit:pending:aaaa") && !kv2.store.has("wit:pending:bbbb") && kv2.store.has("wit:anchored:aaaa") && kv2.store.has("wit:anchored:bbbb"));
+  await worker.scheduled({}, env2, {});
+  chk("witness batch: a second run on an empty pool adds nothing", kv2.store.get("seq") === "41", kv2.store.get("seq"));
+  const pend = await (await worker.fetch(new Request("https://ledger.horizonshield.dev/witness/pending"), env2)).json();
+  chk("witness/pending states the schedule instead of promising daily batches", /00:30 UTC/.test(pend.note), pend.note);
+}
+
+process.exit(chk.done() ? 1 : 0);

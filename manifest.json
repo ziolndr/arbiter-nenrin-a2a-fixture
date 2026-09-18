@@ -1,0 +1,69 @@
+{
+  "fixture": "ARBITER x NENRIN A2A trust-order separation",
+  "nenrin": {
+    "repository": "https://github.com/ogasurfproject-jpg/horizon-shield",
+    "commit": "62b60205ef0b2094e2f75becba34edfcb99cbb65",
+    "source_fixture": "upstream/workers/hs-ledger/nenrin/provenance-v0/candidate_fixture.json",
+    "offline_verifier": "upstream/workers/hs-ledger/nenrin/provenance-v0/verify_candidate_fixture.mjs",
+    "vendored_scope": "upstream/workers/hs-ledger"
+  },
+  "task_id": "task_discovery_1631_1",
+  "permitted": [
+    "cand_alpha",
+    "cand_bravo"
+  ],
+  "order": [
+    "cand_alpha",
+    "cand_bravo"
+  ],
+  "scores": [
+    {
+      "candidate_id": "cand_alpha",
+      "index": 0,
+      "score": 0.5492187943968523
+    },
+    {
+      "candidate_id": "cand_bravo",
+      "index": 1,
+      "score": 0.5288691683323712
+    }
+  ],
+  "artifacts": {
+    "arbiter_compare_input": {
+      "path": "artifacts/arbiter_compare_input.json",
+      "sha256": "45c129adb322b5782ed098a772fff2dd11e09857ced22388849973b518179ea7"
+    },
+    "arbiter_compare_response": {
+      "path": "artifacts/arbiter_compare_response.json",
+      "sha256": "efa18ac9fb55cb4f04322c9e15109091ddd0e32ad8445353c29865f96706e363"
+    },
+    "arbiter_order_result": {
+      "path": "artifacts/arbiter_order_result.json",
+      "sha256": "ff2fd40e0189a8bc54540d39ee293333af6a258d4ea0fd37d0a16ffcc4ba05c6"
+    },
+    "nenrin_verify_original_run": {
+      "path": "artifacts/nenrin_verify.txt",
+      "sha256": "e51080c6b573fed71f333ac8924cb8b89ce660889b59f8d33e19011c44d0029b"
+    },
+    "nenrin_verify_reproduced": {
+      "path": "artifacts/nenrin_verify_reproduced.txt",
+      "sha256": "e51080c6b573fed71f333ac8924cb8b89ce660889b59f8d33e19011c44d0029b"
+    },
+    "completed_fixture": {
+      "path": "derived/candidate_fixture_completed.json",
+      "sha256": "0164dbf18b4eb7ee78790158cc73755d079c5e6fcb4d6dc2d075e64ccfd3fcc6"
+    }
+  },
+  "boundary": {
+    "evidence": "NENRIN candidateEvidenceSet",
+    "permission": "reference trust filter supplied with the frozen fixture",
+    "ordering": "ARBITER",
+    "authorization_and_execution": "outside both layers"
+  },
+  "claim_limits": [
+    "The fixture demonstrates composition at the trust/order seam.",
+    "It does not establish that witness disagreement caused the score delta.",
+    "ARBITER does not establish identity, trust, permission, authorization, or execution.",
+    "NENRIN candidateEvidenceSet does not choose the order."
+  ]
+}

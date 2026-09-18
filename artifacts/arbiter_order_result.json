@@ -1,0 +1,50 @@
+{
+  "task_id": "task_discovery_1631_1",
+  "permitted": [
+    "cand_alpha",
+    "cand_bravo"
+  ],
+  "order": [
+    "cand_alpha",
+    "cand_bravo"
+  ],
+  "scores": [
+    {
+      "candidate_id": "cand_alpha",
+      "index": 0,
+      "score": 0.5492187943968523
+    },
+    {
+      "candidate_id": "cand_bravo",
+      "index": 1,
+      "score": 0.5288691683323712
+    }
+  ],
+  "arbiter": {
+    "measurement": "ARBITER",
+    "contract": "/v1/compare",
+    "compare_input_sha256": "45c129adb322b5782ed098a772fff2dd11e09857ced22388849973b518179ea7",
+    "compare_output_sha256": "efa18ac9fb55cb4f04322c9e15109091ddd0e32ad8445353c29865f96706e363"
+  },
+  "raw_response": {
+    "results": [
+      {
+        "index": 0,
+        "score": 0.5492187943968523
+      },
+      {
+        "index": 1,
+        "score": 0.5288691683323712
+      }
+    ],
+    "cursor": null,
+    "next_offset": 2,
+    "total": 2,
+    "has_more": false,
+    "measurement": "ARBITER",
+    "embed_url": "http://127.0.0.1:8000/local/embed",
+    "query_embeds": 1,
+    "candidate_embeds": 2,
+    "permanent_field": 0
+  }
+}

@@ -1,0 +1,81 @@
+{
+  // hs-ledger — JIDEC public verification ledger
+  //
+  // ★2026-07-26 修正（看板v1.1 と同じ一手）:
+  //   このファイルは長らく「初回デプロイ用の空欄つきメモ」のままだった。
+  //   本番の hs-ledger には (a) 実物の KV 名前空間 (b) hs-pdf-gen への
+  //   PDF_GEN サービスバインディング が既に載っているのに、ここには
+  //   どちらも書かれていなかった。
+  //
+  //   このまま `npx wrangler deploy` すると **PDF_GEN バインディングが消える**。
+  //   消えても派手には壊れない。replay が hs-pdf-gen ノードを再観測できなくなり、
+  //   そのノードが deferred に落ちるだけである。deferred はドリフト扱いしない
+  //   設計なので、台帳は「異常なし」と言い続ける。**静かに検証能力だけが減る**。
+  //   これは JIDEC にとって最も質の悪い壊れ方なので、先に埋めた。
+  //
+  //   同じ理由で account_id と workers_dev も明示した。いずれも実測値である
+  //   （KV id: kv_namespaces_list / サービス名: workers_list / 2026-07-26）。
+  //
+  // 秘密はこのファイルに書かない。LEDGER_ADMIN_TOKEN は wrangler secret 側にあり、
+  // secret は deploy で消えない。消えるのは平文 vars とバインディングである。
+  //
+  // デプロイ前に必ず: node test/ledger.test.mjs && node test/mcp.test.mjs
+  "name": "hs-ledger",
+  "main": "src/worker.js",
+  "compatibility_date": "2026-05-18",
+  "account_id": "c15ff64aba400e541853dec1fbe5e76a",
+  "workers_dev": true,
+  "kv_namespaces": [
+    { "binding": "LEDGER", "id": "37f6ebec621e42e9b9d6362ef6114e78" }
+  ],
+  "services": [
+    // 第二の掟：同一アカウントの workers.dev を fetch すると自分に戻ってくる。
+    // 過去にこれで FALSE DRIFT を出した。だから公開URLではなくバインディングで呼ぶ。
+    { "binding": "PDF_GEN", "service": "hs-pdf-gen" },
+    { "binding": "GATE", "service": "hs-verify-gate" }
+  ],
+  // ★2026-07-26 追加：看板の実測。
+  //   dataset はこの deploy で自動的に作られる。事前に作る操作は要らない。
+  //   バインディング名を変えるとコード側の env.KANBAN_AE と外れ、計測が
+  //   **黙って止まる**（コードは何も投げない設計なので誰も気づかない）。
+  //   名前を変えるなら src/worker.js の noteHit も一緒に変えること。
+  //   読み出しは Cloudflare 側（GraphQL / SQL API）で行う。Worker には
+  //   読み出しルートを一切足していない。足せばアカウント用のAPIトークンを
+  //   Worker に持たせることになり、公開台帳が持つべきでない秘密が増える。
+  "analytics_engine_datasets": [
+    { "binding": "KANBAN_AE", "dataset": "hs_ledger_kanban" }
+  ],
+
+  // ★2026-08-11 追加：カスタムドメイン。
+  //   ダッシュボードの Add Domain / Add Route は "No zones match horizonshield.dev"
+  //   と言って弾くが、これは画面側の不具合である。ゾーンの Account ID は
+  //   c15ff64aba400e541853dec1fbe5e76a で、この worker と同一（実測 2026-08-11）。
+  //   Zone ID は 3cfbb072435b7010cc98dce59d0b82e5。wrangler は API を直接叩くので
+  //   ここに書けば通る。custom_domain:true なら DNS レコードも wrangler が作る。
+  //
+  //   ★workers_dev は true のまま絶対に残すこと。
+  //     Bitcoin に固定済みの JIDEC 記録が hs-ledger.oga-surf-project.workers.dev を
+  //     永久に指している。旧ホストを落とすと過去の証跡が検証不能になる。
+  //     新ドメインは「追加」であって「移行」ではない。
+  "routes": [
+    { "pattern": "ledger.horizonshield.dev", "custom_domain": true }
+  ],
+  // ★2026-09-05 追加：証人プールの日次束ね(src/worker.js の scheduled)。
+  //   08-18 に入った 2 件が 09-05 まで pending やった。「daily batches」と公言して cron が無かった。
+  //   00:30 UTC = 09:30 JST。プールが空なら何もせん。
+  "triggers": { "crons": ["30 0 * * *"] },
+  // 2026-09-16 追加: 合意 intake の重複排除 DO。強整合が要る(boundary 2.3)。
+  // hs-hearing の DispatchGateDO / hs-gateway の TicketLedgerDO と同じ new_sqlite_classes。
+  // クラスは src/worker.js で re-export 済み。
+  "durable_objects": {
+    "bindings": [
+      { "name": "AGREEMENT_DEDUPE_DO", "class_name": "AgreementDedupeDO" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["AgreementDedupeDO"] }
+  ]
+  // PENDING_STALE_HOURS は任意。未設定なら STALE_HOURS_DEFAULT=6 が効く。
+  // ダッシュボードで設定していた場合、vars を宣言しない deploy で消える点に注意
+  // （消えても既定値6に戻るだけで、壊れはしない）。
+}

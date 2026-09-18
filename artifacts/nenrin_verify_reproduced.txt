@@ -1,0 +1,11 @@
+PASS  every candidate id is a did:key that resolves to an Ed25519 key with no network
+PASS  candidate evidence recomputes from the embedded records and matches the recorded set
+PASS  NENRIN evidence leaves permitted null and order null (it decides nothing)
+PASS  the reference trust filter recomputes the same permitted set the fixture records
+PASS  the fixture carries a finite permitted set and leaves order null for ARBITER
+PASS  the witness-disagreement candidate is carried INTO permitted with its disagreement still surfaced
+PASS  the provider-equivocation candidate is verified false and fail-closed out of permitted
+PASS  NENRIN evidence contains no score/allow/deny/decision/recommendation key
+PASS  no em/en/bar dashes anywhere in the fixture
+
+ALL PASS (nenrin-candidate-fixture-v0: real multi-candidate state, did:key offline-verifiable; NENRIN carries the conflicts and decides nothing; the reference filter produces permitted; order left for ARBITER)

@@ -1,0 +1,8 @@
+{
+  "query": "{\"task\":{\"authorized_action\":{\"target\":\"/task\",\"tool\":\"a2a.invoke\"},\"description\":\"select an agent to perform the A2A invocation a2a.invoke /task for task_discovery_1631_1; three candidates were discovered, each with its own provenance\",\"task_id\":\"task_discovery_1631_1\"}}",
+  "candidates": [
+    "{\"candidate_id\":\"cand_alpha\",\"nenrin_evidence\":{\"anchors\":{\"grant_ref\":\"3ff9bca07085ed61e8ade3e59787c512603c8c1683b3d7c1082fa2a635c330b2\",\"intent_id\":null,\"observation_evidence_ids\":[\"57023a062eff6c3504807b81818278091c86886d16d60a89dafd43d1d3462df3\",\"281b32cfc139680a932e421fcff21afb8fb33c0a794be1e5d36da89dcb069726\"],\"reconciled_receipt_id\":\"b5cd9ff3b35ff15199e8bae7b7ac8e6aae3a303e4ae5ac2044b96c9ec9223ef4\"},\"candidate_id\":\"cand_alpha\",\"disagreement_hops\":0,\"equivocations\":0,\"evidence_checked_externally\":false,\"outcome_status\":\"completed\",\"verified\":true}}",
+    "{\"candidate_id\":\"cand_bravo\",\"nenrin_evidence\":{\"anchors\":{\"grant_ref\":\"18ea841fce3f03f23b1a48f01214f6ad99d8901663b768662586cbd391b9a9c7\",\"intent_id\":null,\"observation_evidence_ids\":[\"21b13d620faa594b927d93dcde1e25f08024152fb050cfa2d558fb52ae170953\",\"72d95dba41dceb5ab6ec5512b5acba53d6cff0dd725b4248ec7a4e53e5225e52\",\"cf4a2438582bee389bf3e56319bf3f662fdb3d311a39d82031a75651e7f710ef\"],\"reconciled_receipt_id\":\"bde141339125c22a63bcf47ce46b45aa226f5852f91c07a08f696d62a5bdfa93\"},\"candidate_id\":\"cand_bravo\",\"disagreement_hops\":1,\"equivocations\":0,\"evidence_checked_externally\":false,\"outcome_status\":\"completed\",\"verified\":true}}"
+  ],
+  "top_k": 2
+}
