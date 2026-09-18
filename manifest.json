@@ -65,5 +65,52 @@
     "It does not establish that witness disagreement caused the score delta.",
     "ARBITER does not establish identity, trust, permission, authorization, or execution.",
     "NENRIN candidateEvidenceSet does not choose the order."
-  ]
+  ],
+  "counterfactual": {
+    "experiment": "single-variable ablation",
+    "candidate_id": "cand_bravo",
+    "field": "disagreement_hops",
+    "before": 1,
+    "after": 0,
+    "baseline_order": [
+      "cand_alpha",
+      "cand_bravo"
+    ],
+    "counterfactual_order": [
+      "cand_alpha",
+      "cand_bravo"
+    ],
+    "baseline_scores": {
+      "cand_alpha": 0.5492187943968523,
+      "cand_bravo": 0.5288691683323712
+    },
+    "counterfactual_scores": {
+      "cand_alpha": 0.5492187943968523,
+      "cand_bravo": 0.5300447801971727
+    },
+    "delta": {
+      "cand_alpha": 0.0,
+      "cand_bravo": 0.001175611864801529
+    },
+    "artifacts": {
+      "change_proof": {
+        "path": "counterfactual/change_proof.json",
+        "sha256": "b4f02a152eea2ca94edfa101037c8c0ceb3851b1365e5550cb590e831657a4f6"
+      },
+      "compare_input": {
+        "path": "counterfactual/arbiter_compare_input_disagreement_hops_0.json",
+        "sha256": "e718d196bfa703b0f8ab9f8cd0f2a3b60db8194673610045fdf828dca726c612"
+      },
+      "compare_response": {
+        "path": "counterfactual/arbiter_compare_response_disagreement_hops_0.json",
+        "sha256": "4652f12d18e7c5cb889e26da3b84abf6dbb2a5b85ee48cab7b03641bc2830b2a"
+      },
+      "result": {
+        "path": "counterfactual/result.json",
+        "sha256": "c59bb603c8a7fcf1f2f4f5b08cdd9dcae4325545792c9db9e5d18efcf15ec513"
+      }
+    },
+    "supported_claim": "ARBITER is sensitive to this exact disagreement_hops field change under a one-variable ablation.",
+    "claim_limit": "This does not establish a general causal claim that witness disagreement as a concept caused the original ranking difference."
+  }
 }

@@ -1,0 +1,12 @@
+{
+  "candidate_id": "cand_bravo",
+  "changed_path": [
+    "nenrin_evidence",
+    "disagreement_hops"
+  ],
+  "before": 1,
+  "after": 0,
+  "semantic_diff_count": 1,
+  "baseline_input_sha256": "45c129adb322b5782ed098a772fff2dd11e09857ced22388849973b518179ea7",
+  "ablation_input_sha256": "e718d196bfa703b0f8ab9f8cd0f2a3b60db8194673610045fdf828dca726c612"
+}
