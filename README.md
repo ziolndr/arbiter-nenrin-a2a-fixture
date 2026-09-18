@@ -162,6 +162,10 @@ The non-zero `cand_bravo` delta demonstrates ARBITER sensitivity to this exact `
 
 This does **not** establish the broader claim that witness disagreement, as a general concept, caused the original ranking difference. It establishes only the effect of this controlled representation-level ablation.
 
+## Position paper
+
+[Open Ordering: Why Agent Selection Must Be Portable](docs/OPEN_ORDERING.md)
+
 ## Links
 
 ARBITER integration:
